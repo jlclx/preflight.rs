@@ -8,10 +8,6 @@ publish = false
 name = "preflight"
 path = "src/main.rs"
 
-[profile.release]
-lto = true
-codegen-units = 1
-
 [dependencies]
 yaml-rust = "0.4"
 glob = "0.3.0"
