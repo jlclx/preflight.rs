@@ -20,7 +20,7 @@ jobs:
         with:
           tags: ghcr.io/jlclx/preflight-rs:latest
           context: ./
-          file: ./build/Dockerfile
+          file: ./Dockerfile
           push: true
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
