@@ -8,6 +8,35 @@ use std::path;
 use std::process::Command;
 use yaml_rust::YamlLoader;
 
+macro_rules! copy {
+    ($copy:stmt) => {
+        let from = task["from"].as_str().unwrap();
+        let to = task["to"].as_str().unwrap();
+        let prefix = get_pre_glob_path(from);
+        glob_walk_exec(from, |path| {
+            let destination;
+            let metadata = fs::metadata(path).unwrap();
+            let s = path.trim_start_matches(&prefix);
+            if s.len() > 0 {
+                destination = vec![to, s].join("/");
+            } else {
+                destination = to.to_string();
+            }
+
+            if metadata.is_dir() {
+                fs::create_dir_all(&destination).expect(&*format!(
+                    "error creating dir {} from {}",
+                    &destination, &path
+                ));
+                fs::set_permissions(&destination, metadata.permissions()).expect(&*format!(
+                    "error copying mode {} from {}",
+                    &destination, &path
+                ));
+            } else $copy
+        });
+    };
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -42,62 +71,22 @@ fn main() {
         );
         match task["action"].as_str().unwrap() {
             "copy" => {
-                let from = task["from"].as_str().unwrap();
-                let to = task["to"].as_str().unwrap();
-                let prefix = get_pre_glob_path(from);
-                glob_walk_exec(from, |path| {
-                    let destination;
-                    let metadata = fs::metadata(path).unwrap();
-                    let s = path.trim_start_matches(&prefix);
-                    if s.len() > 0 {
-                        destination = vec![to, s].join("/");
-                    } else {
-                        destination = to.to_string();
-                    }
-
-                    if metadata.is_dir() {
-                        fs::create_dir_all(&destination).expect(&*format!(
-                            "error creating dir {} from {}",
-                            &destination, &path
-                        ));
-                        fs::set_permissions(&destination, metadata.permissions()).expect(
-                            &*format!("error copying mode {} from {}", &destination, &path),
-                        );
-                    } else {
+                copy! {{
+                    fs::copy(path, &destination).expect(&*format!(
+                        "error copying file {} from {}",
+                        &destination, &path
+                    ));
+                }}
+            }
+            "copy-if-absent" => {
+                copy! {{
+                    if !path::Path::new(&destination).exists() {
                         fs::copy(path, &destination).expect(&*format!(
                             "error copying file {} from {}",
                             &destination, &path
                         ));
                     }
-                });
-            }
-            "copy-if-absent" => {
-                // Yes, I repeat myself.
-                let from = task["from"].as_str().unwrap();
-                let to = task["to"].as_str().unwrap();
-                let prefix = get_pre_glob_path(from);
-                glob_walk_exec(from, |path| {
-                    let destination;
-                    let metadata = fs::metadata(path).unwrap();
-                    let s = path.trim_start_matches(&prefix);
-                    if s.len() > 0 {
-                        destination = vec![to, s].join("/");
-                    } else {
-                        destination = to.to_string();
-                    }
-
-                    if metadata.is_dir() {
-                        fs::create_dir_all(&destination)
-                            .expect(&*format!("error creating dir {}", &destination));
-                        fs::set_permissions(&destination, metadata.permissions())
-                            .expect(&*format!("error setting mode {}", &destination));
-                    } else {
-                        if !path::Path::new(&destination).exists() {
-                            fs::copy(path, &destination)
-                                .expect(&*format!("error copying file {}", &destination));
-                        }
-                    }
-                });
+                }}
             }
             "move" => {
                 let from = task["from"].as_str().unwrap();
@@ -109,9 +98,10 @@ fn main() {
                 let uid = unistd::Uid::from_raw(task["uid"].as_i64().unwrap() as u32);
                 let gid = unistd::Gid::from_raw(task["gid"].as_i64().unwrap() as u32);
                 let root = get_pre_glob_path(target);
-                unistd::chown(root.as_str(), Some(uid), Some(gid)).expect(
-                    &*format!("error chowning file {} to {}:{}", &root, uid, gid),
-                );
+                unistd::chown(root.as_str(), Some(uid), Some(gid)).expect(&*format!(
+                    "error chowning file {} to {}:{}",
+                    &root, uid, gid
+                ));
                 glob_walk_exec(target, |path| {
                     unistd::chown(path, Some(uid), Some(gid)).expect(&*format!(
                         "error chowning file {} to {}:{}",
@@ -152,7 +142,8 @@ fn main() {
         None | Some(false) => {
             println!("[preflight] Cleaning up...");
             fs::remove_file(&args[0]).expect(&*format!("Error deleting self at {}", args[0]));
-            fs::remove_file(preflight_file).expect(&*format!("Error deleting config at {}", args[0]));
+            fs::remove_file(preflight_file)
+                .expect(&*format!("Error deleting config at {}", args[0]));
         }
         Some(true) => {}
     };
