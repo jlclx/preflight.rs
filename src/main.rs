@@ -1,11 +1,12 @@
-use glob::glob;
-use nix::unistd;
 use std::env;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
 use std::path;
 use std::process::Command;
+
+use glob::glob;
+use nix::unistd;
 use yaml_rust::YamlLoader;
 
 macro_rules! copy {
