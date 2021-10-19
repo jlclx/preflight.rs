@@ -66,7 +66,7 @@ fn main() {
                             &*format!("error copying mode {} from {}", &destination, &path),
                         );
                     } else {
-                        if &action == "copy" {
+                        if action == "copy" {
                             fs::copy(path, &destination).expect(&*format!(
                                 "error copying file {} from {}",
                                 &destination, &path
