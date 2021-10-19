@@ -9,35 +9,6 @@ use glob::glob;
 use nix::unistd;
 use yaml_rust::YamlLoader;
 
-macro_rules! copy {
-    ($copy:stmt) => {
-        let from = task["from"].as_str().unwrap();
-        let to = task["to"].as_str().unwrap();
-        let prefix = get_pre_glob_path(from);
-        glob_walk_exec(from, |path| {
-            let destination;
-            let metadata = fs::metadata(path).unwrap();
-            let s = path.trim_start_matches(&prefix);
-            if s.len() > 0 {
-                destination = vec![to, s].join("/");
-            } else {
-                destination = to.to_string();
-            }
-
-            if metadata.is_dir() {
-                fs::create_dir_all(&destination).expect(&*format!(
-                    "error creating dir {} from {}",
-                    &destination, &path
-                ));
-                fs::set_permissions(&destination, metadata.permissions()).expect(&*format!(
-                    "error copying mode {} from {}",
-                    &destination, &path
-                ));
-            } else $copy
-        });
-    };
-}
-
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -70,24 +41,46 @@ fn main() {
             c,
             task["message"].as_str().unwrap()
         );
-        match task["action"].as_str().unwrap() {
-            "copy" => {
-                copy! {{
-                    fs::copy(path, &destination).expect(&*format!(
-                        "error copying file {} from {}",
-                        &destination, &path
-                    ));
-                }}
-            }
-            "copy-if-absent" => {
-                copy! {{
-                    if !path::Path::new(&destination).exists() {
-                        fs::copy(path, &destination).expect(&*format!(
-                            "error copying file {} from {}",
+        let action = task["action"].as_str().unwrap();
+        match action {
+            "copy" | "copy-if-absent" => {
+                let from = task["from"].as_str().unwrap();
+                let to = task["to"].as_str().unwrap();
+                let prefix = get_pre_glob_path(from);
+                glob_walk_exec(from, |path| {
+                    let destination;
+                    let metadata = fs::metadata(path).unwrap();
+                    let s = path.trim_start_matches(&prefix);
+                    if s.len() > 0 {
+                        destination = vec![to, s].join("/");
+                    } else {
+                        destination = to.to_string();
+                    }
+
+                    if metadata.is_dir() {
+                        fs::create_dir_all(&destination).expect(&*format!(
+                            "error creating dir {} from {}",
                             &destination, &path
                         ));
+                        fs::set_permissions(&destination, metadata.permissions()).expect(
+                            &*format!("error copying mode {} from {}", &destination, &path),
+                        );
+                    } else {
+                        if &action == "copy" {
+                            fs::copy(path, &destination).expect(&*format!(
+                                "error copying file {} from {}",
+                                &destination, &path
+                            ));
+                        } else {
+                            if !path::Path::new(&destination).exists() {
+                                fs::copy(path, &destination).expect(&*format!(
+                                    "error copying file {} from {}",
+                                    &destination, &path
+                                ));
+                            }
+                        }
                     }
-                }}
+                });
             }
             "move" => {
                 let from = task["from"].as_str().unwrap();
