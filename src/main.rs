@@ -185,8 +185,9 @@ fn get_pre_glob_path(path: &str) -> String {
 }
 
 fn cleanup(args: &Vec<String>, preflight_file: &str) {
-    println!("[preflight] Cleaning up...");
+    println!("[preflight] Cleaning up {}", &args[0]);
     fs::remove_file(&args[0]).expect(&*format!("Error deleting self at {}", args[0]));
+    println!("[preflight] Cleaning up {}", preflight_file);
     fs::remove_file(preflight_file)
         .expect(&*format!("Error deleting config at {}", args[0]));
 }
