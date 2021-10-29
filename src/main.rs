@@ -85,7 +85,7 @@ fn main() {
             "move" => {
                 let from = task["from"].as_str().unwrap();
                 let to = task["to"].as_str().unwrap();
-                fs::rename(from, to).expect(&*format!("error moving file {} to {}", &from, &to));
+                fs::rename(from, to).expect(&*format!("Error moving file {} to {}", &from, &to));
             }
             "chown" => {
                 let target = task["target"].as_str().unwrap();
@@ -135,7 +135,7 @@ fn main() {
                 let root = get_pre_glob_path(target);
                 // Probably ends up in a double walk
                 fs::set_permissions(root.as_str(), fs::Permissions::from_mode(mode))
-                    .expect(&*format!("error setting mode {} to {}", &root, mode));
+                    .expect(&*format!("Error setting mode {} to {}", &root, mode));
                 glob_walk_exec(target, |path| {
                     fs::set_permissions(path, fs::Permissions::from_mode(mode))
                         .expect(&*format!("Error setting mode {} to {}", &path, mode));
