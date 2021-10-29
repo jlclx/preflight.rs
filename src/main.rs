@@ -89,17 +89,42 @@ fn main() {
             }
             "chown" => {
                 let target = task["target"].as_str().unwrap();
-                let uid = unistd::Uid::from_raw(task["uid"].as_integer().unwrap() as u32);
-                let gid = unistd::Gid::from_raw(task["gid"].as_integer().unwrap() as u32);
+
+                let uid = match task.get("uid") {
+                    Some(Value::Integer(v)) => {
+                        Some(unistd::Uid::from_raw(*v as u32))
+                    }
+                    Some(Value::String(v)) =>  {
+                        let id = u32::from_str_radix(v, 10).expect("Invalid uid string");
+                        Some(unistd::Uid::from_raw(id))
+                    }
+                    _ => {
+                        None
+                    }
+                };
+
+                let gid = match task.get("gid") {
+                    Some(Value::Integer(v)) => {
+                        Some(unistd::Gid::from_raw(*v as u32))
+                    }
+                    Some(Value::String(v)) =>  {
+                        let id = u32::from_str_radix(v, 10).expect("Invalid gid string");
+                        Some(unistd::Gid::from_raw(id))
+                    }
+                    _ => {
+                        None
+                    }
+                };
                 let root = get_pre_glob_path(target);
-                unistd::chown(root.as_str(), Some(uid), Some(gid)).expect(&*format!(
+                // Probably ends up in a double walk
+                unistd::chown(root.as_str(), uid, gid).expect(&*format!(
                     "Error chowning file {} to {}:{}",
-                    &root, uid, gid
+                    &root, uid.unwrap_or(unistd::Uid::from_raw(0)), gid.unwrap_or(unistd::Gid::from_raw(0))
                 ));
                 glob_walk_exec(target, |path| {
-                    unistd::chown(path, Some(uid), Some(gid)).expect(&*format!(
+                    unistd::chown(path, uid, gid).expect(&*format!(
                         "Error chowning file {} to {}:{}",
-                        &path, uid, gid
+                        &path, uid.unwrap_or(unistd::Uid::from_raw(0)), gid.unwrap_or(unistd::Gid::from_raw(0))
                     ));
                 })
             }
@@ -108,6 +133,7 @@ fn main() {
                 // mode: "value" # Must be quoted or it's interpreted as a int and as_str() is unwrap()'d to None.
                 let mode = u32::from_str_radix(task["mode"].as_str().unwrap(), 8).unwrap();
                 let root = get_pre_glob_path(target);
+                // Probably ends up in a double walk
                 fs::set_permissions(root.as_str(), fs::Permissions::from_mode(mode))
                     .expect(&*format!("error setting mode {} to {}", &root, mode));
                 glob_walk_exec(target, |path| {
